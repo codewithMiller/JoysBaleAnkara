@@ -1,0 +1,32 @@
+{% for product in related_products %}
+    {% with v=product.first_variant %}
+    <a href="{% url 'product_detail' product.id %}"
+       class="group block bg-[#111] rounded-xl overflow-hidden border border-[#C9A84C]/10 hover:scale-[1.02] transition duration-500">
+
+        <div class="aspect-[3/4] overflow-hidden relative">
+            {% if v and v.images.first %}
+                <img src="{{ v.images.first.image.url }}"
+                     alt="{{ product.name }}"
+                     class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+            {% else %}
+                <div class="w-full h-full flex items-center justify-center text-[#C9A84C]/30 bg-[#0A0A0A]">
+                    No Image
+                </div>
+            {% endif %}
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent"></div>
+        </div>
+
+        <div class="p-4">
+            <h3 class="font-bold text-[#FAF7F0] group-hover:text-[#C9A84C] transition truncate">
+                {{ product.name }}
+            </h3>
+            {% if v %}
+                <p class="text-[#C9A84C] font-semibold mt-1 text-sm">&#8358;{{ v.price }}</p>
+            {% endif %}
+        </div>
+
+    </a>
+    {% endwith %}
+{% empty %}
+    <p class="text-[#FAF7F0]/40 col-span-4 text-center py-8">No related products.</p>
+{% endfor %}
