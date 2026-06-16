@@ -91,6 +91,7 @@ USE_TZ = True
 
 
 # === STATIC & MEDIA FILES ===
+STATICFILES_DIRS = []
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
