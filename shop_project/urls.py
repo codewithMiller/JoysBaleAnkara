@@ -1,3 +1,5 @@
+from django.urls import path
+from . import views
 from django.contrib.sitemaps.views import sitemap
 from .sitemaps import StaticViewSitemap, ProductSitemap   # Adjust import if needed
 
