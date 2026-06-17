@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- =========================
+    SHOP HERO
+========================= -->
+<section class="pt-28 pb-10 px-6 text-center relative">
+  <div class="absolute inset-0 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A] to-[#111]"></div>
+
+  <div class="relative z-10">
+    <h1 class="text-4xl md:text-6xl font-black text-[#FAF7F0]">
+      The <span class="text-[#C9A84C]">Collection</span>
+    </h1>
+    <p class="text-[#FAF7F0]/60 mt-4 max-w-xl mx-auto">
+      Every piece is designed for presence, elegance, and power.
+    </p>
+  </div>
+</section>
+
+<!-- =========================
+    COMPACT FILTER BAR
+========================= -->
+<section class="px-6 pb-10">
+  <form method="get" class="max-w-6xl mx-auto">
+
+    <div class="flex items-center justify-between bg-[#111] border border-[#C9A84C]/10 rounded-xl px-4 py-3">
+      <input
+        type="text"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search collections..."
+        class="flex-1 bg-transparent text-[#FAF7F0] outline-none placeholder-[#FAF7F0]/40"
+      >
+
+      <button type="button" onclick="toggleFilters()" 
+        class="ml-4 p-2 rounded-lg hover:bg-[#C9A84C]/10 transition"
+        aria-label="Open filters">
+        <i data-lucide="filter" class="w-5 h-5 text-[#C9A84C]"></i>
+      </button>
+
+      <button type="submit" class="ml-2 px-4 py-2 bg-[#C9A84C] text-black rounded-lg font-semibold">
+        Go
+      </button>
+    </div>
+
+    <!-- Filter Panel -->
+    <div id="filterPanel" class="hidden mt-4 bg-[#111] border border-[#C9A84C]/10 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <select name="category" class="bg-[#0A0A0A] border border-[#C9A84C]/20 px-3 py-2 rounded-lg text-[#FAF7F0]">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if selected_category and selected_category.id == cat.id %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <select name="gender" class="bg-[#0A0A0A] border border-[#C9A84C]/20 px-3 py-2 rounded-lg text-[#FAF7F0]">
+        <option value="M" {% if selected_gender == 'M' %}selected{% endif %}>Men</option>
+        <option value="W" {% if selected_gender == 'W' %}selected{% endif %}>Women</option>
+        <option value="U" {% if selected_gender == 'U' %}selected{% endif %}>Unisex</option>
+      </select>
+
+      <select name="color" class="bg-[#0A0A0A] border border-[#C9A84C]/20 px-3 py-2 rounded-lg text-[#FAF7F0]">
+        <option value="">Color</option>
+        {% for c in available_colors %}
+          <option value="{{ c }}" {% if selected_color == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+
+      <a href="{% url 'shop' %}" 
+         class="text-center px-3 py-2 text-[#C9A84C] border border-[#C9A84C]/20 rounded-lg hover:bg-[#C9A84C]/10 transition">
+        Reset
+      </a>
+    </div>
+  </form>
+</section>
+
+<!-- =========================
+    MOBILE EXPERIENCE - 2 COLUMNS (Amazon Style)
+========================= -->
+<div class="md:hidden px-4 pb-24">
+  <div class="grid grid-cols-2 gap-4">
+    {% for product in products %}
+      {% with v=product.first_variant %}
+      <a href="{% url 'product_detail' product.id %}" 
+         class="block bg-[#111] rounded-2xl overflow-hidden border border-[#C9A84C]/10 active:scale-[0.98] transition">
+
+        <!-- IMAGE -->
+        <div class="aspect-[4/5] relative overflow-hidden">
+          {% if v and v.images.first %}
+            <img src="{{ v.images.first.image.url }}" 
+                 class="w-full h-full object-cover">
+          {% else %}
+            <div class="w-full h-full flex items-center justify-center text-[#C9A84C]/30 text-sm">
+              No Image
+            </div>
+          {% endif %}
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent"></div>
+        </div>
+
+        <!-- INFO -->
+        <div class="p-3">
+          <h2 class="text-base font-bold text-[#FAF7F0] line-clamp-2">
+            {{ product.name }}
+          </h2>
+
+          {% if v %}
+            <p class="text-[#C9A84C] font-semibold mt-1 text-sm">
+              ₦{{ v.price }}
+            </p>
+          {% endif %}
+
+          <div class="mt-3 text-[10px] flex justify-between text-[#FAF7F0]/60">
+            <span>Tap to view</span>
+            <span class="text-[#C9A84C]">Luxury</span>
+          </div>
+        </div>
+      </a>
+      {% endwith %}
+    {% endfor %}
+  </div>
+</div>
+
+<!-- =========================
+    DESKTOP EXPERIENCE
+========================= -->
+<div class="hidden md:block px-6 pb-24">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-10">
+      {% for product in products %}
+        {% with v=product.first_variant %}
+        <a href="{% url 'product_detail' product.id %}" 
+           class="group relative bg-[#111] rounded-xl overflow-hidden border border-[#C9A84C]/10 hover:scale-[1.02] transition duration-500">
+
+          <div class="aspect-[3/4] overflow-hidden relative">
+            {% if v and v.images.first %}
+              <img src="{{ v.images.first.image.url }}" 
+                   class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+            {% else %}
+              <div class="w-full h-full flex items-center justify-center text-[#C9A84C]/30">
+                No Image
+              </div>
+            {% endif %}
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent"></div>
+          </div>
+
+          <div class="p-5">
+            <h2 class="text-xl font-bold text-[#FAF7F0] group-hover:text-[#C9A84C] transition line-clamp-2">
+              {{ product.name }}
+            </h2>
+
+            {% if v %}
+              <p class="text-[#C9A84C] font-semibold mt-2">
+                ₦{{ v.price }}
+              </p>
+            {% endif %}
+
+            <div class="mt-4 flex justify-between text-xs">
+              <span class="text-[#FAF7F0]/50">Hover to explore</span>
+              <span class="text-[#C9A84C]">View →</span>
+            </div>
+          </div>
+        </a>
+        {% endwith %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- =========================
+    FLOATING WHATSAPP CTA
+========================= -->
+<a href="https://wa.me/{{ site_settings.whatsapp_number }}" 
+   class="fixed bottom-6 right-6 bg-[#25D366] text-black px-5 py-3 rounded-full shadow-lg font-semibold hover:scale-110 transition z-50">
+  WhatsApp Us
+</a>
+
+{% endblock %}
