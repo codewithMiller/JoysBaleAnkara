@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- =========================
+    PRODUCT DETAIL LUXURY LAYOUT
+========================= -->
+<section class="pt-28 px-6 pb-20">
+
+  <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+    <!-- =========================
+        IMAGE SECTION
+    ========================= -->
+    <div class="space-y-4">
+
+      <div class="bg-[#111] rounded-2xl overflow-hidden border border-[#C9A84C]/10">
+
+        {% with first_variant=variants.first %}
+          {% if first_variant and first_variant.images.first %}
+            <img id="main-product-image"
+                 src="{{ first_variant.images.first.image.url }}"
+                 class="w-full h-[500px] object-cover lg:h-[650px]">
+          {% else %}
+            <div id="main-product-image"
+                 class="w-full h-[500px] flex items-center justify-center text-[#C9A84C]/30">
+              No Image
+            </div>
+          {% endif %}
+        {% endwith %}
+
+      </div>
+
+    </div>
+
+
+    <!-- =========================
+        INFO SECTION (STICKY DESKTOP)
+    ========================= -->
+    <div class="lg:sticky lg:top-24 h-fit space-y-6">
+
+      <!-- Title -->
+      <div>
+        <h1 class="text-3xl md:text-5xl font-black text-[#FAF7F0]">
+          {{ product.name }}
+        </h1>
+
+        <p class="text-[#FAF7F0]/60 mt-3 leading-relaxed">
+          {{ product.description }}
+        </p>
+      </div>
+
+      <!-- Meta -->
+      <div class="space-y-1 text-sm text-[#FAF7F0]/60">
+        <p>Category: <span class="text-[#C9A84C]">{{ product.category.name }}</span></p>
+        <p>Gender: <span class="text-[#C9A84C]">{{ product.get_gender_display }}</span></p>
+      </div>
+
+      <!-- PRICE + STOCK -->
+      <div class="bg-[#111] border border-[#C9A84C]/10 rounded-xl p-4">
+        <p class="text-[#C9A84C] text-2xl font-bold">
+          ₦<span id="price-value">{{ variants.first.price }}</span>
+        </p>
+
+        <p id="stock-status" class="text-sm mt-1 text-[#FAF7F0]/60">
+          {% if variants.first.in_stock %}In Stock{% else %}Out of Stock{% endif %}
+        </p>
+      </div>
+
+      <!-- =========================
+          VARIANT SWATCHES (LUXURY PILLS)
+      ========================= -->
+      <div>
+        <h3 class="text-sm uppercase tracking-wider text-[#FAF7F0]/50 mb-3">
+          Select Colour
+        </h3>
+<div class="flex gap-3 flex-wrap">
+  {% for v in variants %}
+    {% if v.images.first %}
+    <button
+      type="button"
+      class="variant-swatch rounded-xl overflow-hidden border-2 border-transparent hover:border-[#C9A84C] transition {% if forloop.first %}border-[#C9A84C]{% endif %}"
+      data-variant-id="{{ v.id }}"
+      data-price="{{ v.price }}"
+      data-in-stock="{{ v.in_stock|yesno:'true,false' }}"
+      data-whatsapp-link="{{ v.whatsapp_link }}"
+      data-image="{{ v.images.first.image.url }}"
+    >
+      <img src="{{ v.images.first.image.url }}"
+           alt="{{ v.color|default:'Variant' }}"
+           class="w-20 h-24 object-cover">
+    </button>
+    {% endif %}
+  {% endfor %}
+</div>
+      </div>
+
+      <!-- BUY BUTTON -->
+      <button id="buy-button"
+        class="w-full py-4 bg-[#C9A84C] text-black font-bold rounded-xl hover:scale-[1.02] transition disabled:opacity-40 disabled:cursor-not-allowed">
+        Buy via WhatsApp
+      </button>
+      </br></br>
+            <!-- Back BUTTON -->
+      <a href="{% url 'shop' %}"
+        class="w-full py-4 bg-[#C9A84C] text-black font-bold rounded-xl hover:scale-[1.02] transition disabled:opacity-40 disabled:cursor-not-allowed">
+        Back to shop
+      </a>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- =========================
+    RELATED PRODUCTS
+========================= -->
+<section class="px-6 pb-20">
+  <div class="max-w-7xl mx-auto">
+
+    <h2 class="text-2xl md:text-3xl font-bold text-[#FAF7F0] mb-8">
+      You Might Also Like
+    </h2>
+
+    <div id="related-products-grid"
+         class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+      {% include 'shop/_related_product_cards.html' %}
+
+    </div>
+
+    {% if related_has_more %}
+      <div class="text-center mt-10">
+        <button id="load-more-related"
+          data-page="2"
+          data-product-id="{{ product.id }}"
+          class="px-6 py-3 border border-[#C9A84C]/30 text-[#C9A84C] rounded-lg hover:bg-[#C9A84C]/10 transition">
+          Load More
+        </button>
+      </div>
+    {% endif %}
+
+  </div>
+</section>
+
+
+<!-- =========================
+    CONFIRM MODAL (LUXURY OVERLAY)
+========================= -->
+<div id="confirm-modal"
+     style="display:none;"
+     class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+
+  <div class="bg-[#111] border border-[#C9A84C]/20 rounded-2xl p-6 w-[90%] max-w-md text-center">
+
+    <p class="text-[#FAF7F0] text-lg mb-6">
+      Continue to WhatsApp to place your order?
+    </p>
+
+    <div class="flex gap-4 justify-center">
+
+      <button id="confirm-yes"
+        class="px-5 py-2 bg-[#C9A84C] text-black rounded-lg font-semibold">
+        Yes
+      </button>
+
+      <button id="confirm-no"
+        class="px-5 py-2 border border-[#C9A84C]/30 text-[#C9A84C] rounded-lg">
+        Cancel
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+
+<!-- === JS == -->
+   <script>
+(function() {
+
+    // Yards selector
+    const yardsDisplay = document.getElementById('yards-display');
+    const yardsMin = {{ product.min_yards }};
+    const yardsMax = {{ product.max_yards }};
+    let yardsValue = yardsMin;
+
+    document.getElementById('yards-minus').addEventListener('click', () => {
+        if (yardsValue > yardsMin) {
+            yardsValue--;
+            yardsDisplay.textContent = yardsValue;
+        }
+    });
+
+    document.getElementById('yards-plus').addEventListener('click', () => {
+        if (yardsValue < yardsMax) {
+            yardsValue++;
+            yardsDisplay.textContent = yardsValue;
+        }
+    });
+
+    // Swatches
+    const swatches = document.querySelectorAll('.variant-swatch');
+    const mainImage = document.getElementById('main-product-image');
+    const priceValue = document.getElementById('price-value');
+    const stockStatus = document.getElementById('stock-status');
+    const buyButton = document.getElementById('buy-button');
+
+    let selectedWhatsappLink = swatches.length ? swatches[0].dataset.whatsappLink : '';
+
+    function selectSwatch(swatch) {
+        swatches.forEach(s => {
+            s.classList.remove('border-[#C9A84C]');
+            s.classList.add('border-transparent');
+        });
+
+        swatch.classList.remove('border-transparent');
+        swatch.classList.add('border-[#C9A84C]');
+
+        priceValue.textContent = swatch.dataset.price;
+        stockStatus.textContent = swatch.dataset.inStock === 'true' ? 'In Stock' : 'Out of Stock';
+
+        if (swatch.dataset.image && mainImage.tagName === 'IMG') {
+            mainImage.src = swatch.dataset.image;
+        }
+
+        selectedWhatsappLink = swatch.dataset.whatsappLink;
+        buyButton.disabled = swatch.dataset.inStock !== 'true';
+    }
+
+    swatches.forEach(swatch => {
+        swatch.addEventListener('click', () => selectSwatch(swatch));
+    });
+
+    if (swatches.length) {
+        buyButton.disabled = swatches[0].dataset.inStock !== 'true';
+    }
+
+    // Modal
+    const modal = document.getElementById('confirm-modal');
+    const confirmYes = document.getElementById('confirm-yes');
+    const confirmNo = document.getElementById('confirm-no');
+
+    buyButton.addEventListener('click', () => {
+        if (!selectedWhatsappLink) return;
+        modal.style.display = 'flex';
+    });
+
+    confirmNo.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    confirmYes.addEventListener('click', () => {
+        modal.style.display = 'none';
+        const link = selectedWhatsappLink + `%0AYards%3A%20${yardsValue}`;
+        window.open(link, '_blank');
+    });
+
+    // Load more related products
+    const loadMoreBtn = document.getElementById('load-more-related');
+
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+            const productId = loadMoreBtn.dataset.productId;
+            const page = loadMoreBtn.dataset.page;
+
+            fetch(`/product/${productId}/related/?page=${page}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('related-products-grid')
+                        .insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        loadMoreBtn.dataset.page = parseInt(page) + 1;
+                    } else {
+                        loadMoreBtn.remove();
+                    }
+                });
+        });
+    }
+
+})();
+</script>
+
+{% endblock %}
