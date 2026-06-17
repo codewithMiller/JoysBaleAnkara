@@ -32,6 +32,8 @@ class Product(models.Model):
 
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    min_yards = models.PositiveIntegerField(default=1)
+    max_yards = models.PositiveIntegerField(default=10)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='U')
     category = models.ForeignKey(
         Category,
