@@ -25,7 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'nested-admin',
+    'nested_admin',
     'cloudinary_storage',
     'cloudinary',
 
