@@ -73,7 +73,6 @@ def is_relevant_ankara_item(item):
 
     return any(good in combined for good in ALLOWED_KEYWORDS)
 
-
 def fetch_products_for_keyword(token, keyword, page=1, page_size=20, retries=3):
     headers = {"CJ-Access-Token": token}
 
