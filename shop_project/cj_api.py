@@ -1,22 +1,18 @@
 import os
+import time
 import requests
 
 CJ_API_KEY = os.environ.get("CJ_API_KEY")
 BASE_URL = "https://developers.cjdropshipping.com/api2.0/v1"
 
 
-# Search terms that are actually relevant to Ankara / African fashion / fabric
 ANKARA_SEARCH_TERMS = [
     "ankara fabric",
     "african wax print fabric",
     "african print fabric",
-    "kitenge fabric",
-    "dashiki fabric",
-    "african dress",
     "ankara dress",
 ]
 
-# Words that strongly suggest the product is relevant
 ALLOWED_KEYWORDS = [
     "ankara",
     "african print",
@@ -24,17 +20,16 @@ ALLOWED_KEYWORDS = [
     "kitenge",
     "dashiki",
     "african dress",
+    "ankara dress",
     "fabric",
     "cloth",
     "textile",
     "material",
     "gown",
-    "2 piece",
     "skirt",
     "blouse",
 ]
 
-# Words that strongly suggest rubbish / irrelevant items
 BLOCKED_KEYWORDS = [
     "bed",
     "sofa",
@@ -78,23 +73,24 @@ def normalize_text(value):
 
 
 def get_token():
-    res = requests.post(
-        f"{BASE_URL}/authentication/getAccessToken",
-        json={"apiKey": CJ_API_KEY},
-        timeout=30
-    )
-    res.raise_for_status()
-    data = res.json()
+    try:
+        res = requests.post(
+            f"{BASE_URL}/authentication/getAccessToken",
+            json={"apiKey": CJ_API_KEY},
+            timeout=30
+        )
+        res.raise_for_status()
+        data = res.json()
 
-    if data.get("result") and data.get("data"):
-        return data["data"].get("accessToken")
+        if data.get("result") and data.get("data"):
+            return data["data"].get("accessToken")
+    except requests.RequestException as e:
+        print(f"CJ auth error: {e}")
+
     return None
 
 
 def is_relevant_ankara_item(item):
-    """
-    Decide whether a CJ product looks relevant to an Ankara/African fashion store.
-    """
     name = normalize_text(item.get("productNameEn"))
     desc = normalize_text(item.get("description"))
     combined = f"{name} {desc}".strip()
@@ -102,12 +98,10 @@ def is_relevant_ankara_item(item):
     if not combined:
         return False
 
-    # Reject obvious junk first
     for bad_word in BLOCKED_KEYWORDS:
         if bad_word in combined:
             return False
 
-    # Accept only if it contains at least one useful term
     for good_word in ALLOWED_KEYWORDS:
         if good_word in combined:
             return True
@@ -115,40 +109,64 @@ def is_relevant_ankara_item(item):
     return False
 
 
-def fetch_products_for_keyword(token, keyword, page=1, page_size=20):
-    """
-    Raw CJ fetch for one keyword.
-    """
+def fetch_products_for_keyword(token, keyword, page=1, page_size=20, retries=3):
     headers = {"CJ-Access-Token": token}
 
-    res = requests.get(
-        f"{BASE_URL}/product/list",
-        headers=headers,
-        params={
-            "productNameEn": keyword,
-            "pageNum": page,
-            "pageSize": page_size,
-        },
-        timeout=30
-    )
-    res.raise_for_status()
-    data = res.json()
+    for attempt in range(retries):
+        try:
+            res = requests.get(
+                f"{BASE_URL}/product/list",
+                headers=headers,
+                params={
+                    "productNameEn": keyword,
+                    "pageNum": page,
+                    "pageSize": page_size,
+                },
+                timeout=30
+            )
 
-    if data.get("result") and data.get("data"):
-        return data["data"].get("list", [])
+            # Handle rate limiting
+            if res.status_code == 429:
+                wait_time = 5 * (attempt + 1)
+                print(f"[CJ] Rate limited on '{keyword}'. Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
+                continue
+
+            res.raise_for_status()
+            data = res.json()
+
+            if data.get("result") and data.get("data"):
+                return data["data"].get("list", [])
+
+            return []
+
+        except requests.RequestException as e:
+            print(f"[CJ] Error fetching '{keyword}': {e}")
+
+            # Wait a bit before retrying
+            if attempt < retries - 1:
+                time.sleep(3 * (attempt + 1))
+            else:
+                print(f"[CJ] Giving up on keyword '{keyword}'")
+                return []
+
     return []
 
 
 def fetch_clothing(token, page=1):
-    """
-    Fetch Ankara/African-fashion-related CJ products using multiple search terms,
-    then deduplicate and filter them before returning.
-    """
     seen_pids = set()
     filtered_products = []
 
     for keyword in ANKARA_SEARCH_TERMS:
-        products = fetch_products_for_keyword(token, keyword, page=page, page_size=20)
+        print(f"[CJ] Fetching keyword: {keyword}")
+
+        products = fetch_products_for_keyword(
+            token,
+            keyword,
+            page=page,
+            page_size=20,
+            retries=3
+        )
 
         for item in products:
             pid = item.get("pid")
@@ -160,5 +178,8 @@ def fetch_clothing(token, page=1):
 
             seen_pids.add(pid)
             filtered_products.append(item)
+
+        # Small delay between keywords so CJ doesn't slap us again
+        time.sleep(2)
 
     return filtered_products
