@@ -13,97 +13,32 @@ def parse_price(price_val):
         return 0
 
 
-# Words we WANT in Ankara/fabric products
-ALLOWED_KEYWORDS = [
-    "ankara",
-    "african print",
-    "wax print",
-    "kitenge",
-    "dashiki",
-    "aso oke",
-    "fabric",
-    "cloth",
-    "textile",
-    "material",
-    "print fabric",
-    "african fabric",
-]
-
-# Words we definitely do NOT want
-BLOCKED_KEYWORDS = [
-    "bed",
-    "sofa",
-    "mattress",
-    "pillow",
-    "chair",
-    "table",
-    "cap",
-    "hat",
-    "beanie",
-    "helmet",
-    "lingerie",
-    "bra",
-    "panties",
-    "underwear",
-    "bikini",
-    "swim",
-    "earring",
-    "necklace",
-    "bracelet",
-    "ring",
-    "pet",
-    "cat",
-    "dog",
-    "toy",
-    "baseball",
-    "bedroom",
-    "furniture",
-    "curtain",
-    "rug",
-]
-
-
-def normalize_text(value):
-    return (value or "").strip().lower()
-
-
-def is_relevant_ankara_product(item):
-    """
-    Decide whether a CJ item is relevant enough to import into the Ankara store.
-    """
-    name = normalize_text(item.get("productNameEn"))
-    description = normalize_text(item.get("description"))
-    combined = f"{name} {description}"
-
-    if not combined.strip():
-        return False
-
-    # Reject obvious junk first
-    for bad_word in BLOCKED_KEYWORDS:
-        if bad_word in combined:
-            return False
-
-    # Must contain at least one allowed keyword
-    for good_word in ALLOWED_KEYWORDS:
-        if good_word in combined:
-            return True
-
-    return False
-
-
 class Command(BaseCommand):
     help = "Sync Ankara clothing/fabric from CJDropshipping"
 
-    def handle(self, *args, **kwargs):
+    def add_arguments(self, parser):
+        parser.add_argument('--limit', type=int, default=300, help='Maximum products to sync')
+        parser.add_argument('--max-pages', type=int, default=5, help='Max pages per keyword')
+        parser.add_argument('--clear-old', action='store_true', help='Delete all existing CJ products before sync')
+
+    def handle(self, *args, **options):
+        limit = options['limit']
+        max_pages = options['max_pages']
+        clear_old = options['clear_old']
+
         token = get_token()
         if not token:
             self.stdout.write(self.style.ERROR("Auth failed. Check your CJ_API_KEY."))
             return
 
+        if clear_old:
+            deleted, _ = Product.objects.filter(is_cj_product=True).delete()
+            self.stdout.write(self.style.WARNING(f"Cleared {deleted} old CJ products."))
+
         category, _ = Category.objects.get_or_create(name="Ankara")
 
-        # You can test different search phrases later
-        products = fetch_clothing(token)
+        # Use improved multi-page fetch from cj_api
+        products = fetch_clothing(token, max_pages=max_pages, max_products=limit)
 
         if not products:
             self.stdout.write(self.style.WARNING("No products returned from CJ."))
@@ -122,15 +57,9 @@ class Command(BaseCommand):
 
             if not pid or not image:
                 skipped_irrelevant += 1
-                self.stdout.write(f"Skipped missing pid/image: {name}")
                 continue
 
-            # FILTER OUT RUBBISH HERE
-            if not is_relevant_ankara_product(item):
-                skipped_irrelevant += 1
-                self.stdout.write(f"Skipped irrelevant: {name}")
-                continue
-
+            # Create or update product
             product, created = Product.objects.get_or_create(
                 cj_pid=pid,
                 defaults={
@@ -155,19 +84,15 @@ class Command(BaseCommand):
 
                 added_count += 1
                 self.stdout.write(self.style.SUCCESS(f"Added: {name}"))
-
             else:
-                # OPTIONAL: update existing CJ product if needed
+                # Update existing
                 changed = False
-
                 if product.name != name:
                     product.name = name
                     changed = True
-
                 if product.category != category:
                     product.category = category
                     changed = True
-
                 if not product.is_cj_product:
                     product.is_cj_product = True
                     changed = True
@@ -195,9 +120,8 @@ class Command(BaseCommand):
                     updated_count += 1
 
                 skipped_existing += 1
-                self.stdout.write(f"Exists/checked: {name}")
 
         self.stdout.write(self.style.SUCCESS(
             f"Sync complete. Added={added_count}, Existing={skipped_existing}, "
-            f"Updated={updated_count}, Irrelevant Skipped={skipped_irrelevant}"
+            f"Updated={updated_count}, Skipped={skipped_irrelevant}"
         ))
