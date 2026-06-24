@@ -42,6 +42,8 @@ class Product(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    cj_pid = models.CharField(max_length=100, blank=True, unique=True, null=True)
+    is_cj_product = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
