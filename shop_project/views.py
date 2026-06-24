@@ -74,15 +74,15 @@ def shop(request):
     if gender in ('M', 'W', 'U'):
         products = products.filter(gender=gender)
 
-    # --- Color filter (matches any variant's color) ---
+    # --- Color filter ---
     color = request.GET.get('color', '').strip()
     if color:
         products = products.filter(variants__color__iexact=color).distinct()
 
-    # Top-level categories for the filter sidebar/dropdown
+    # Top-level categories for filter
     categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
 
-    # Distinct colors across all variants, for the color filter dropdown
+    # Distinct colors
     available_colors = (
         ProductVariant.objects
         .exclude(color='')
@@ -91,8 +91,21 @@ def shop(request):
         .order_by('color')
     )
 
+    # =========================
+    # PAGINATION (NEW)
+    # =========================
+    paginator = Paginator(products, 24)  # 24 products per page
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
     context = {
-        'products': products,
+        'products': page_obj,           # Now a page object
+        'page_obj': page_obj,           # For template pagination controls
         'categories': categories,
         'available_colors': available_colors,
         'selected_category': selected_category,
