@@ -103,7 +103,7 @@ class Command(BaseCommand):
         category, _ = Category.objects.get_or_create(name="Ankara")
 
         # You can test different search phrases later
-        products = fetch_clothing(token, keyword="Ankara fabric")
+        products = fetch_clothing(token)
 
         if not products:
             self.stdout.write(self.style.WARNING("No products returned from CJ."))
