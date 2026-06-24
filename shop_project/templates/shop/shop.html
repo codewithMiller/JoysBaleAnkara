@@ -86,7 +86,7 @@
           </div>
           <div class="p-3">
             <h2 class="text-base font-bold text-[#FAF7F0] line-clamp-2">{{ product.name }}</h2>
-            {% if v %}<p class="text-[#C9A84C] font-semibold mt-1 text-sm">₦{{ v.price }}</p>{% endif %}
+            {% if v %}<p class="text-[#C9A84C] font-semibold mt-1 text-sm">${{ v.price }}</p>{% endif %}
           </div>
         </a>
         {% endwith %}
