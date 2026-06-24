@@ -39,7 +39,6 @@ BLOCKED_KEYWORDS = [
     "wallet", "watch", "shoe", "sneaker", "sock",
 ]
 
-
 def normalize_text(value):
     return (value or "").strip().lower()
 
