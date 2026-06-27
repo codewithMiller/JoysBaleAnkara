@@ -1,8 +1,9 @@
+import time
+import re
 from django.core.management.base import BaseCommand
 from shop_project.cj_api import get_token, fetch_clothing
 from shop_project.models import Product, ProductVariant, VariantImage, Category
-import time
-import re
+
 FABRIC_KEYWORDS = [
     "textile fabric",
     "wax print fabric",
@@ -24,7 +25,6 @@ ALLOWED_KEYWORDS = [
     "crepe", "organza", "tulle", "denim", "silk", "linen",
 ]
 
-# Expanded to catch all apparel variations coming from CJ
 BLOCKED_KEYWORDS = [
     "dress", "gown", "skirt", "blouse", "shirt", "trouser", "pant", "pants",
     "jacket", "coat", "suit", "jumpsuit", "romper", "top", "tee", "t-shirt",
@@ -38,6 +38,7 @@ BLOCKED_KEYWORDS = [
     "bra", "panties", "bikini", "swim", "swimsuit", "swimwear", "bathing", "monokini"
 ]
 
+
 def parse_price(price_val):
     if not price_val:
         return 0
@@ -47,8 +48,6 @@ def parse_price(price_val):
     except (ValueError, TypeError):
         return 0
 
-
-import re  # Add this at the very top of sync_cj.py if it isn't there!
 
 def is_relevant_fabric(item):
     name = (item.get("productNameEn") or "").strip().lower()
@@ -117,7 +116,7 @@ class Command(BaseCommand):
         elif options["keyword"]:
             keywords = [options["keyword"].strip()]
         else:
-            keywords = FABRIC_KEYWORDS  # default to all
+            keywords = FABRIC_KEYWORDS
 
         if limit <= 0 or max_pages <= 0:
             self.stdout.write(self.style.ERROR("limit and max-pages must be greater than 0."))
@@ -149,7 +148,6 @@ class Command(BaseCommand):
                     break
 
                 products = fetch_clothing(token, keyword=keyword, page=page, category_id="A04")
-                
 
                 if not products:
                     self.stdout.write(f"No products on page {page}. Moving on.")
@@ -157,9 +155,9 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"Page {page}: {len(products)} raw results from CJ.")
 
-                if not is_relevant_ankara_item(item):
-        total_skipped += 1
-        continue
+                for item in products:
+                    if total_saved >= limit:
+                        break
 
                     if not is_relevant_fabric(item):
                         total_skipped += 1
@@ -199,6 +197,7 @@ class Command(BaseCommand):
                         VariantImage.objects.create(variant=variant, image_url=image)
                         total_created += 1
                         total_saved += 1
+                        grand_created += 1
                         self.stdout.write(self.style.SUCCESS(f"Added: {name}"))
 
                     else:
@@ -239,29 +238,17 @@ class Command(BaseCommand):
                         if not existing_image:
                             VariantImage.objects.create(variant=variant, image_url=image)
                             changed = True
-                        elif hasattr(existing_image, "image_url") and existing_image.image_url != image:
-                            existing_image.image_url = image
-                            existing_image.save()
-                            changed = True
+                        
+                        if changed:
+                            total_updated += 1
+                            grand_updated += 1
+                        else:
+                            total_skipped += 1
+                            grand_skipped += 1
 
-                        total_updated += 1
-                        total_saved += 1
-                        self.stdout.write(self.style.WARNING(f"Updated: {name}"))
+            self.stdout.write(f"Keyword '{keyword}' summary: Created {total_created}, Updated {total_updated}, Skipped {total_skipped}")
 
-                time.sleep(1)  # be polite to CJ rate limits between pages
-
-            self.stdout.write(
-                f"'{keyword}' done: created={total_created} updated={total_updated} skipped={total_skipped}"
-            )
-            grand_created += total_created
-            grand_updated += total_updated
-            grand_skipped += total_skipped
-
-            time.sleep(2)  # pause between keywords
-
-        self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("=== CJ Sync Complete ==="))
-        self.stdout.write(f"Category: {category_name}")
-        self.stdout.write(f"Total Created: {grand_created}")
-        self.stdout.write(f"Total Updated: {grand_updated}")
-        self.stdout.write(f"Total Skipped: {grand_skipped}")
+        self.stdout.write(self.style.SUCCESS(
+            f"\nSync complete. Total Created: {grand_created}, Total Updated: {grand_updated}, Total Skipped: {grand_skipped}"
+        ))
+            
