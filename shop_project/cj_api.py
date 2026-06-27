@@ -1,76 +1,40 @@
 import os
 import time
 import requests
+import re # Added for strict word filtering
 
 CJ_API_KEY = os.environ.get("CJ_API_KEY")
-BASE_URL = "https://developers.cjdropshipping.com/api2.0/v1"
+BASE_URL = "https://cjdropshipping.com"
 
 ANKARA_SEARCH_TERMS = [
-    "textile fabric",
-    "wax print fabric",
-    "cotton fabric",
-    "polyester fabric",
-    "lace fabric",
-    "chiffon fabric",
-    "ankara fabric",
-    "african print fabric",
-    "satin fabric",
-    "velvet fabric",
-    "georgette fabric",
-    "brocade fabric",
-    "sequin fabric",
+    "textile fabric", "wax print fabric", "cotton fabric", "polyester fabric",
+    "lace fabric", "chiffon fabric", "ankara fabric", "african print fabric",
+    "satin fabric", "velvet fabric", "georgette fabric", "brocade fabric", "sequin fabric",
 ]
 
 ALLOWED_KEYWORDS = [
-    "fabric",
-    "textile",
-    "cloth",
-    "material",
-    "yardage",
-    "yard",
-    "meter",
-    "metres",
-    "wax print",
-    "ankara",
-    "kitenge",
-    "cotton",
-    "polyester",
-    "chiffon",
-    "satin",
-    "lace",
-    "velvet",
-    "georgette",
-    "brocade",
-    "sequin",
-    "crepe",
-    "organza",
-    "tulle",
-    "denim",
-    "silk",
-    "linen",
+    "fabric", "textile", "cloth", "material", "yardage", "yard", "meter",
+    "metres", "wax print", "ankara", "kitenge", "cotton", "polyester",
+    "chiffon", "satin", "lace", "velvet", "georgette", "brocade",
+    "sequin", "crepe", "organza", "tulle", "denim", "silk", "linen",
 ]
 
 BLOCKED_KEYWORDS = [
-    # garments
-    "dress", "gown", "skirt", "blouse", "shirt", "trouser", "pant",
-    "jacket", "coat", "suit", "jumpsuit", "romper", "top", "tee",
-    "hoodie", "sweater", "cardigan", "vest", "shorts",
-    # accessories
+    # garments & swimwear
+    "dress", "gown", "skirt", "blouse", "shirt", "trouser", "pant", "pants",
+    "jacket", "coat", "suit", "jumpsuit", "romper", "top", "tee", "t-shirt",
+    "hoodie", "sweater", "cardigan", "vest", "shorts", "wear", "clothing",
+    "bikini", "swim", "swimsuit", "swimwear", "bathing", "monokini", "lingerie", "underwear", "bra", "panties",
+    # accessories & home finished goods
     "earring", "necklace", "bracelet", "ring", "watch", "wallet",
-    "shoe", "sneaker", "boot", "heel", "sandal", "sock", "bag", "purse",
-    "hat", "cap", "beanie", "helmet", "scarf", "glove",
-    # home/furniture
-    "bed", "sofa", "mattress", "pillow", "chair", "table",
-    "curtain", "rug", "blanket", "towel", "bedsheet",
-    "bedroom", "furniture",
-    # misc
-    "pet", "cat", "dog", "toy", "lingerie", "underwear",
-    "bra", "panties", "bikini", "swim",
+    "shoe", "sneaker", "boot", "heel", "sandal", "sock", "socks", "bag", "purse",
+    "hat", "cap", "beanie", "helmet", "scarf", "glove", "gloves",
+    "bed", "sofa", "mattress", "pillow", "chair", "table", "bedroom", "furniture",
+    "curtain", "rug", "blanket", "towel", "bedsheet", "pet", "cat", "dog", "toy",
 ]
 
 def normalize_text(value):
     return (value or "").strip().lower()
-
 
 def get_token():
     try:
@@ -87,7 +51,6 @@ def get_token():
         print(f"CJ auth error: {e}")
     return None
 
-
 def is_relevant_ankara_item(item):
     name = normalize_text(item.get("productNameEn"))
     desc = normalize_text(item.get("description"))
@@ -96,24 +59,37 @@ def is_relevant_ankara_item(item):
     if not combined:
         return False
 
-    if any(bad in combined for bad in BLOCKED_KEYWORDS):
+    # Extract distinct whole words
+    words = set(re.findall(r'\b[a-z]+\b', combined))
+
+    # Strict Check 1: If any standalone word matches our blocked list, reject it
+    if any(bad in words for bad in BLOCKED_KEYWORDS):
         return False
 
-    return any(good in combined for good in ALLOWED_KEYWORDS)
+    # Strict Check 2: Protect against phrase variations like "two piece" or "swim suit"
+    if any(phrase in combined for phrase in ["swim", "bikini", "piece suit", "lingerie"]):
+        return False
 
-def fetch_products_for_keyword(token, keyword, page=1, page_size=20, retries=3):
+    # Strict Check 3: Must include at least one valid fabric identifier word
+    return any(good in words for good in ALLOWED_KEYWORDS)
+
+def fetch_products_for_keyword(token, keyword, page=1, page_size=20, retries=3, category_id="A04"):
+    # "A04" is the common top-level CJ category prefix for Home Textiles / Fabrics
     headers = {"CJ-Access-Token": token}
+    params = {
+        "productNameEn": keyword,
+        "pageNum": page,
+        "pageSize": page_size,
+    }
+    if category_id:
+        params["categoryId"] = category_id
 
     for attempt in range(retries):
         try:
             res = requests.get(
                 f"{BASE_URL}/product/list",
                 headers=headers,
-                params={
-                    "productNameEn": keyword,
-                    "pageNum": page,
-                    "pageSize": page_size,
-                },
+                params=params,
                 timeout=30
             )
 
@@ -136,22 +112,24 @@ def fetch_products_for_keyword(token, keyword, page=1, page_size=20, retries=3):
                 time.sleep(3 * (attempt + 1))
             else:
                 return []
-
     return []
 
-
-def fetch_clothing(token, keyword, page=1):
+def fetch_clothing(token, keyword, page=1, category_id="A04"):
+    """Updated to include optional categoryId filtering directly inside parameters"""
     headers = {"CJ-Access-Token": token}
-    res = requests.get(
-        f"{BASE_URL}/product/list",
-        headers=headers,
-        params={
-            "productNameEn": keyword,
-            "pageNum": page,
-            "pageSize": 20
-        }
-    )
-    data = res.json()
-    if data.get("result"):
-        return data["data"]["list"]
+    params = {
+        "productNameEn": keyword,
+        "pageNum": page,
+        "pageSize": 20
+    }
+    if category_id:
+        params["categoryId"] = category_id
+
+    try:
+        res = requests.get(f"{BASE_URL}/product/list", headers=headers, params=params, timeout=30)
+        data = res.json()
+        if data.get("result") and data.get("data"):
+            return data["data"].get("list", [])
+    except Exception as e:
+        print(f"Error in fetch_clothing: {e}")
     return []
