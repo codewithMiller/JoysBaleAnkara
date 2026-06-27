@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from shop_project.cj_api import get_token, fetch_clothing
 from shop_project.models import Product, ProductVariant, VariantImage, Category
 import time
-
+import re
 FABRIC_KEYWORDS = [
     "textile fabric",
     "wax print fabric",
@@ -24,19 +24,19 @@ ALLOWED_KEYWORDS = [
     "crepe", "organza", "tulle", "denim", "silk", "linen",
 ]
 
+# Expanded to catch all apparel variations coming from CJ
 BLOCKED_KEYWORDS = [
-    "dress", "gown", "skirt", "blouse", "shirt", "trouser", "pant",
-    "jacket", "coat", "suit", "jumpsuit", "romper", "top", "tee",
-    "hoodie", "sweater", "cardigan", "vest", "shorts",
+    "dress", "gown", "skirt", "blouse", "shirt", "trouser", "pant", "pants",
+    "jacket", "coat", "suit", "jumpsuit", "romper", "top", "tee", "t-shirt",
+    "hoodie", "sweater", "cardigan", "vest", "shorts", "wear", "clothing",
     "earring", "necklace", "bracelet", "ring", "watch", "wallet",
-    "shoe", "sneaker", "boot", "heel", "sandal", "sock", "bag", "purse",
-    "hat", "cap", "beanie", "helmet", "scarf", "glove",
+    "shoe", "sneaker", "boot", "heel", "sandal", "sock", "socks", "bag", "purse",
+    "hat", "cap", "beanie", "helmet", "scarf", "glove", "gloves",
     "bed", "sofa", "mattress", "pillow", "chair", "table",
     "curtain", "rug", "blanket", "towel", "bedsheet", "furniture",
-    "pet", "cat", "dog", "toy", "lingerie", "underwear",
-    "bra", "panties", "bikini", "swim",
+    "pet", "cat", "dog", "toy", "lingerie", "underwear", "undergarments",
+    "bra", "panties", "bikini", "swim", "swimsuit", "swimwear", "bathing", "monokini"
 ]
-
 
 def parse_price(price_val):
     if not price_val:
@@ -48,6 +48,8 @@ def parse_price(price_val):
         return 0
 
 
+import re  # Add this at the very top of sync_cj.py if it isn't there!
+
 def is_relevant_fabric(item):
     name = (item.get("productNameEn") or "").strip().lower()
     desc = (item.get("description") or "").strip().lower()
@@ -55,9 +57,20 @@ def is_relevant_fabric(item):
 
     if not combined.strip():
         return False
-    if any(bad in combined for bad in BLOCKED_KEYWORDS):
+
+    # 1. Extract clean, individual words
+    words = set(re.findall(r'\b[a-z]+\b', combined))
+
+    # 2. Block finished clothing words instantly
+    if any(bad in words for bad in BLOCKED_KEYWORDS):
         return False
-    return any(good in combined for good in ALLOWED_KEYWORDS)
+        
+    # 3. Block multi-word apparel phrases
+    if any(phrase in combined for phrase in ["swim", "bikini", "lingerie", "piece suit", "clothing", "wear"]):
+        return False
+
+    # 4. Must contain a raw fabric keyword
+    return any(good in words for good in ALLOWED_KEYWORDS)
 
 
 class Command(BaseCommand):
@@ -135,7 +148,8 @@ class Command(BaseCommand):
                 if total_saved >= limit:
                     break
 
-                products = fetch_clothing(token, keyword=keyword, page=page)
+                products = fetch_clothing(token, keyword=keyword, page=page, category_id="A04")
+                
 
                 if not products:
                     self.stdout.write(f"No products on page {page}. Moving on.")
@@ -143,9 +157,9 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"Page {page}: {len(products)} raw results from CJ.")
 
-                for item in products:
-                    if total_saved >= limit:
-                        break
+                if not is_relevant_ankara_item(item):
+        total_skipped += 1
+        continue
 
                     if not is_relevant_fabric(item):
                         total_skipped += 1
