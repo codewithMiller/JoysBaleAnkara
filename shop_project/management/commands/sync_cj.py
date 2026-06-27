@@ -25,36 +25,45 @@ class Command(BaseCommand):
     help = "Sync clothing products from CJDropshipping into your store"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--keyword",
-            type=str,
-            default="Ankara fabric",
-            help="CJ product search keyword, e.g. 'Ankara fabric', 'Men suit', 'Kaftan'"
-        )
-        parser.add_argument(
-            "--category",
-            type=str,
-            default="Ankara",
-            help="Local category name to assign products to, e.g. 'Ankara', 'Suits', 'Kaftans'"
-        )
-        parser.add_argument(
-            "--limit",
-            type=int,
-            default=100,
-            help="Maximum number of products to save locally"
-        )
-        parser.add_argument(
-            "--max-pages",
-            type=int,
-            default=5,
-            help="Maximum number of CJ result pages to fetch"
-        )
-
+    parser.add_argument("--keyword", type=str, default=None)
+    parser.add_argument("--category", type=str, default="Fabric")
+    parser.add_argument("--limit", type=int, default=100)
+    parser.add_argument("--max-pages", type=int, default=5)
+    parser.add_argument(
+        "--all-fabrics",
+        action="store_true",
+        help="Sync all fabric keywords in one run"
+    )
     def handle(self, *args, **options):
         keyword = options["keyword"].strip()
         category_name = options["category"].strip()
         limit = options["limit"]
         max_pages = options["max_pages"]
+
+        FABRIC_KEYWORDS = [
+    "textile fabric",
+    "wax print fabric",
+    "cotton fabric",
+    "polyester fabric",
+    "lace fabric",
+    "chiffon fabric",
+    "ankara fabric",
+    "satin fabric",
+    "velvet fabric",
+    "georgette fabric",
+    "brocade fabric",
+]
+
+if options["all_fabrics"]:
+    keywords = FABRIC_KEYWORDS
+elif options["keyword"]:
+    keywords = [options["keyword"].strip()]
+else:
+    keywords = FABRIC_KEYWORDS  # default to all if nothing passed
+
+for keyword in keywords:
+    # your existing page loop goes here, indented under this for loop
+    ...
 
         if limit <= 0:
             self.stdout.write(self.style.ERROR("Limit must be greater than 0."))
